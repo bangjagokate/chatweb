@@ -16,9 +16,24 @@
     input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
     button { padding: 10px; border: none; border-radius: 5px; background: #4caf50; color: #fff; cursor: pointer; }
     .notif-bubble { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: white; padding: 10px 15px; border-radius: 10px; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-    emoji-picker { position: fixed; bottom: 70px; right: 20px; z-index: 1000; display: none; }
   </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="messages" id="messages"></div>
+    <div class="input-container">
+      <input type="text" id="username" placeholder="Nama Anda" />
+      <input type="text" id="messageInput" placeholder="Tulis pesan..." />
+      <input type="file" id="fileInput" />
+      <button onclick="sendMessage()">Kirim</button>
+      <button id="emojiBtn">Emoji</button>
+    </div>
+  </div>
+  <div class="notif-bubble" id="notifBubble"></div>
+
   <script type="module">
+    import { EmojiButton } from 'https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/+esm';
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
@@ -37,83 +52,80 @@
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
 
-    window.addEventListener('DOMContentLoaded', () => {
-      const messagesDiv = document.getElementById('messages');
-      const notif = document.getElementById('notifBubble');
-      const emojiPicker = document.getElementById('emojiPicker');
-      const messageInput = document.getElementById('messageInput');
+    const TELEGRAM_BOT_TOKEN = "8188899814:AAH-cbR7RlkW0sS0znQWeIpg6LvgV8yN5LA";
+    const TELEGRAM_CHAT_ID = "734989570091"; // Ganti ke chat ID kamu jika perlu
 
-      function showNotification(msg) {
-        notif.textContent = msg;
-        notif.style.display = 'block';
-        setTimeout(() => notif.style.display = 'none', 3000);
-      }
+    const messagesDiv = document.getElementById('messages');
+    const notif = document.getElementById('notifBubble');
+    const input = document.getElementById('messageInput');
 
-      onChildAdded(messagesRef, snapshot => {
-        const data = snapshot.val();
-        const username = document.getElementById('username').value.trim();
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'message ' + (data.name === username ? 'me' : 'other');
-        msgDiv.innerHTML = `<strong>${data.name}</strong><br>${data.message || ''}`;
-        if (data.file) {
-          if (data.file.startsWith('data:image')) {
-            msgDiv.innerHTML += `<img src="${data.file}" />`;
-          } else {
-            msgDiv.innerHTML += `<br><a href="${data.file}" download>Download file</a>`;
-          }
-        }
-        messagesDiv.appendChild(msgDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        if (data.name !== username) showNotification(`${data.name}: ${data.message}`);
-      });
-
-      window.sendMessage = function () {
-        const name = document.getElementById('username').value.trim();
-        const message = messageInput.value.trim();
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
-
-        if (!name || (!message && !file)) return;
-
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            push(messagesRef, { name, message, file: e.target.result });
-          };
-          reader.readAsDataURL(file);
-          fileInput.value = "";
-        } else {
-          push(messagesRef, { name, message });
-        }
-
-        messageInput.value = '';
-        emojiPicker.style.display = 'none';
-      }
-
-      window.toggleEmojiPicker = function () {
-        emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
-      }
-
-      emojiPicker.addEventListener('emoji-click', event => {
-        messageInput.value += event.detail.unicode;
-      });
+    const picker = new EmojiButton();
+    document.getElementById('emojiBtn').addEventListener('click', () => {
+      picker.togglePicker(document.getElementById('emojiBtn'));
     });
+    picker.on('emoji', emoji => {
+      input.value += emoji;
+    });
+
+    function showNotification(msg) {
+      notif.textContent = msg;
+      notif.style.display = 'block';
+      setTimeout(() => notif.style.display = 'none', 3000);
+    }
+
+    onChildAdded(messagesRef, snapshot => {
+      const data = snapshot.val();
+      const username = document.getElementById('username').value.trim();
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message ' + (data.name === username ? 'me' : 'other');
+      msgDiv.innerHTML = `<strong>${data.name}</strong><br>${data.message || ''}`;
+      if (data.file) {
+        if (data.file.startsWith('data:image')) {
+          msgDiv.innerHTML += `<img src="${data.file}" />`;
+        } else {
+          msgDiv.innerHTML += `<br><a href="${data.file}" download>Download file</a>`;
+        }
+      }
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      if (data.name !== username) {
+        showNotification(`${data.name}: ${data.message}`);
+        // Kirim ke Telegram
+        const text = `📨 *Pesan Baru dari ${data.name}*\n\n${data.message || ''}`;
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: text,
+            parse_mode: 'Markdown'
+          })
+        });
+      }
+    });
+
+    window.sendMessage = function () {
+      const name = document.getElementById('username').value.trim();
+      const message = input.value.trim();
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!name || (!message && !file)) return;
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          push(messagesRef, { name, message, file: e.target.result });
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = "";
+      } else {
+        push(messagesRef, { name, message });
+      }
+
+      input.value = '';
+    };
   </script>
-</head>
-<body>
-  <div class="chat-container">
-    <div class="messages" id="messages"></div>
-    <div class="input-container">
-      <input type="text" id="username" placeholder="Nama Anda" />
-      <input type="text" id="messageInput" placeholder="Tulis pesan..." />
-      <input type="file" id="fileInput" />
-      <button onclick="sendMessage()">Kirim</button>
-      <button onclick="toggleEmojiPicker()">Emoji</button>
-    </div>
-  </div>
-  <div class="notif-bubble" id="notifBubble"></div>
-  <emoji-picker id="emojiPicker"></emoji-picker>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1"></script>
 </body>
 </html>
