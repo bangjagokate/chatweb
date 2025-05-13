@@ -9,31 +9,19 @@
     .chat-container { max-width: 700px; margin: auto; height: 100vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #ccc; }
     .messages { flex: 1; padding: 10px; overflow-y: auto; }
     .message { margin: 10px 0; max-width: 75%; padding: 10px; border-radius: 10px; position: relative; }
-    .message.me { background: #d1f1fd; margin-left: auto; text-align: right; }
+    .message.me { background: #d1ffd1; margin-left: auto; text-align: right; }
     .message.other { background: #eaeaea; }
+    .message img { max-width: 100px; display: block; margin-top: 5px; border-radius: 5px; }
     .input-container { display: flex; flex-wrap: wrap; align-items: center; padding: 10px; border-top: 1px solid #ccc; gap: 5px; }
     input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
     button { padding: 10px; border: none; border-radius: 5px; background: #4caf50; color: #fff; cursor: pointer; }
-    #emoji-button { background: #f0c419; }
     .notif-bubble { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: white; padding: 10px 15px; border-radius: 10px; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+    emoji-picker { position: fixed; bottom: 70px; right: 20px; z-index: 1000; display: none; }
   </style>
-</head>
-<body>
-  <div class="chat-container">
-    <div class="messages" id="messages"></div>
-    <div class="input-container">
-      <input type="text" id="messageInput" placeholder="Ketik pesan..." />
-      <button id="emoji-button">Emoji</button>
-      <button onclick="sendMessage()">Kirim</button>
-    </div>
-  </div>
-  <div class="notif-bubble" id="notif">Pesan baru!</div>
-
-  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
-    
+
     const firebaseConfig = {
       apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
       authDomain: "webchatapp-986b5.firebaseapp.com",
@@ -41,53 +29,91 @@
       projectId: "webchatapp-986b5",
       storageBucket: "webchatapp-986b5.appspot.com",
       messagingSenderId: "734989570091",
-      appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e"
+      appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e",
+      measurementId: "G-Q62RQWXHEW"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const messagesRef = ref(db, "messages");
+    const messagesRef = ref(db, 'messages');
 
-    const messagesEl = document.getElementById("messages");
-    const inputEl = document.getElementById("messageInput");
-    const notifEl = document.getElementById("notif");
+    window.addEventListener('DOMContentLoaded', () => {
+      const messagesDiv = document.getElementById('messages');
+      const notif = document.getElementById('notifBubble');
+      const emojiPicker = document.getElementById('emojiPicker');
+      const messageInput = document.getElementById('messageInput');
 
-    function sendMessage() {
-      const msg = inputEl.value.trim();
-      if (msg !== "") {
-        push(messagesRef, {
-          text: msg,
-          sender: "me",
-          time: Date.now()
-        });
-        inputEl.value = "";
+      function showNotification(msg) {
+        notif.textContent = msg;
+        notif.style.display = 'block';
+        setTimeout(() => notif.style.display = 'none', 3000);
       }
-    }
 
-    onChildAdded(messagesRef, (data) => {
-      const msg = data.val();
-      const div = document.createElement("div");
-      div.className = "message " + (msg.sender === "me" ? "me" : "other");
-      div.textContent = msg.text;
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      onChildAdded(messagesRef, snapshot => {
+        const data = snapshot.val();
+        const username = document.getElementById('username').value.trim();
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message ' + (data.name === username ? 'me' : 'other');
+        msgDiv.innerHTML = `<strong>${data.name}</strong><br>${data.message || ''}`;
+        if (data.file) {
+          if (data.file.startsWith('data:image')) {
+            msgDiv.innerHTML += `<img src="${data.file}" />`;
+          } else {
+            msgDiv.innerHTML += `<br><a href="${data.file}" download>Download file</a>`;
+          }
+        }
+        messagesDiv.appendChild(msgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-      if (msg.sender !== "me") {
-        notifEl.style.display = "block";
-        setTimeout(() => notifEl.style.display = "none", 2000);
+        if (data.name !== username) showNotification(`${data.name}: ${data.message}`);
+      });
+
+      window.sendMessage = function () {
+        const name = document.getElementById('username').value.trim();
+        const message = messageInput.value.trim();
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+
+        if (!name || (!message && !file)) return;
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            push(messagesRef, { name, message, file: e.target.result });
+          };
+          reader.readAsDataURL(file);
+          fileInput.value = "";
+        } else {
+          push(messagesRef, { name, message });
+        }
+
+        messageInput.value = '';
+        emojiPicker.style.display = 'none';
       }
-    });
 
-    // Emoji Picker
-    import EmojiButton from "https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.2/dist/index.js";
+      window.toggleEmojiPicker = function () {
+        emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
+      }
 
-    const picker = new EmojiButton();
-    const trigger = document.getElementById('emoji-button');
-    picker.on('emoji', emoji => {
-      inputEl.value += emoji;
-      inputEl.focus();
+      emojiPicker.addEventListener('emoji-click', event => {
+        messageInput.value += event.detail.unicode;
+      });
     });
-    trigger.addEventListener('click', () => picker.togglePicker(trigger));
   </script>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="messages" id="messages"></div>
+    <div class="input-container">
+      <input type="text" id="username" placeholder="Nama Anda" />
+      <input type="text" id="messageInput" placeholder="Tulis pesan..." />
+      <input type="file" id="fileInput" />
+      <button onclick="sendMessage()">Kirim</button>
+      <button onclick="toggleEmojiPicker()">Emoji</button>
+    </div>
+  </div>
+  <div class="notif-bubble" id="notifBubble"></div>
+  <emoji-picker id="emojiPicker"></emoji-picker>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1"></script>
 </body>
 </html>
