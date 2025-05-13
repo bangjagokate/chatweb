@@ -1,95 +1,115 @@
-<!DOCTYPE html>
-<html lang="id">
+<!DOCTYPE html><html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Web Chat App</title>
+  <title>Chat Web Modern</title>
   <style>
-    body { font-family: Arial; background: #f4f4f4; margin: 0; padding: 0; }
-    .chat-container { max-width: 600px; margin: auto; background: #fff; height: 100vh; display: flex; flex-direction: column; border: 1px solid #ccc; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f1f1f1; }
+    .chat-container { max-width: 700px; margin: auto; height: 100vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #ccc; }
     .messages { flex: 1; padding: 10px; overflow-y: auto; }
-    .message { margin: 5px 0; padding: 5px 10px; border-radius: 5px; background: #e0e0e0; max-width: 80%; }
+    .message { margin: 10px 0; max-width: 75%; padding: 10px; border-radius: 10px; position: relative; }
     .message.me { background: #d1ffd1; margin-left: auto; text-align: right; }
-    .input-container { display: flex; border-top: 1px solid #ccc; }
-    input, button { padding: 10px; border: none; outline: none; }
-    input { flex: 1; }
-    button { background: #4caf50; color: #fff; cursor: pointer; }
+    .message.other { background: #eaeaea; }
+    .message img { max-width: 100px; display: block; margin-top: 5px; border-radius: 5px; }
+    .input-container { display: flex; flex-wrap: wrap; align-items: center; padding: 10px; border-top: 1px solid #ccc; gap: 5px; }
+    input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+    button { padding: 10px; border: none; border-radius: 5px; background: #4caf50; color: #fff; cursor: pointer; }
+    .notif-bubble { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: white; padding: 10px 15px; border-radius: 10px; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
   </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";const firebaseConfig = {
+  apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
+  authDomain: "webchatapp-986b5.firebaseapp.com",
+  databaseURL: "https://webchatapp-986b5-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "webchatapp-986b5",
+  storageBucket: "webchatapp-986b5.appspot.com",
+  messagingSenderId: "734989570091",
+  appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e",
+  measurementId: "G-Q62RQWXHEW"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const messagesRef = ref(db, 'messages');
+
+window.addEventListener('DOMContentLoaded', () => {
+  const messagesDiv = document.getElementById('messages');
+  const notif = document.getElementById('notifBubble');
+
+  function showNotification(msg) {
+    notif.textContent = msg;
+    notif.style.display = 'block';
+    setTimeout(() => notif.style.display = 'none', 3000);
+  }
+
+  onChildAdded(messagesRef, snapshot => {
+    const data = snapshot.val();
+    const username = document.getElementById('username').value.trim();
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message ' + (data.name === username ? 'me' : 'other');
+    msgDiv.innerHTML = `<strong>${data.name}</strong><br>${data.message || ''}`;
+    if (data.file) {
+      if (data.file.startsWith('data:image')) {
+        msgDiv.innerHTML += `<img src="${data.file}" />`;
+      } else {
+        msgDiv.innerHTML += `<br><a href="${data.file}" download>Download file</a>`;
+      }
+    }
+    messagesDiv.appendChild(msgDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (data.name !== username) showNotification(`${data.name}: ${data.message}`);
+  });
+
+  window.sendMessage = function () {
+    const name = document.getElementById('username').value.trim();
+    const message = document.getElementById('messageInput').value.trim();
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+
+    if (!name || (!message && !file)) return;
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        push(messagesRef, { name, message, file: e.target.result });
+      };
+      reader.readAsDataURL(file);
+      fileInput.value = "";
+    } else {
+      push(messagesRef, { name, message });
+    }
+
+    document.getElementById('messageInput').value = '';
+  }
+
+  window.toggleEmojiPicker = function () {
+    const picker = document.getElementById('emojiPicker');
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+  }
+
+  document.getElementById('emojiPicker').addEventListener('emoji-click', event => {
+    const input = document.getElementById('messageInput');
+    input.value += event.detail.unicode;
+  });
+});
+
+  </script>
 </head>
 <body>
   <div class="chat-container">
     <div class="messages" id="messages"></div>
     <div class="input-container">
       <input type="text" id="username" placeholder="Nama Anda" />
-      <input type="text" id="messageInput" placeholder="Ketik pesan..." />
+      <input type="text" id="messageInput" placeholder="Tulis pesan..." />
+      <input type="file" id="fileInput" />
       <button onclick="sendMessage()">Kirim</button>
+      <button onclick="toggleEmojiPicker()">Emoji</button>
     </div>
   </div>
-
-  <audio id="notifSound" src="https://notificationsounds.com/storage/sounds/file-sounds-1144-pristine.mp3" preload="auto"></audio>
-
-  <!-- Firebase SDK -->
-  <script type="module">
-    // Import Firebase modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, limitToLast } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
-
-    // Firebase configuration from your project
-    const firebaseConfig = {
-      apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
-      authDomain: "webchatapp-986b5.firebaseapp.com",
-      databaseURL: "https://webchatapp-986b5-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "webchatapp-986b5",
-      storageBucket: "webchatapp-986b5.firebasestorage.app",
-      messagingSenderId: "734989570091",
-      appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e",
-      measurementId: "G-Q62RQWXHEW"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const messagesRef = ref(db, 'messages');
-
-    const messagesDiv = document.getElementById('messages');
-    const notifSound = document.getElementById('notifSound');
-
-    // Load recent messages
-    onChildAdded(messagesRef, snapshot => {
-      const data = snapshot.val();
-      const msgDiv = document.createElement('div');
-      const username = document.getElementById('username').value.trim();
-      msgDiv.className = 'message' + (data.name === username ? ' me' : '');
-      msgDiv.innerText = data.name + ': ' + data.message;
-      messagesDiv.appendChild(msgDiv);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-      if (data.name !== username) {
-        showNotification(data.name, data.message);
-        notifSound.play();
-      }
-    });
-
-    // Send new message
-    window.sendMessage = function () {
-      const name = document.getElementById('username').value.trim();
-      const message = document.getElementById('messageInput').value.trim();
-      if (name && message) {
-        push(messagesRef, { name, message });
-        document.getElementById('messageInput').value = '';
-      }
-    };
-
-    // Request notification permission
-    if (Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-
-    // Show web notification
-    function showNotification(title, body) {
-      if (Notification.permission === "granted") {
-        new Notification(title, { body });
-      }
-    }
-  </script>
+  <div class="notif-bubble" id="notifBubble"></div>
+  <emoji-picker id="emojiPicker" style="position: fixed; bottom: 70px; right: 20px; display: none;"></emoji-picker>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1"></script>
 </body>
 </html>
