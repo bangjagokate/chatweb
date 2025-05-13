@@ -33,10 +33,10 @@
 
   <script type="module">
     import { EmojiButton } from 'https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/+esm';
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
       authDomain: "webchatapp-986b5.firebaseapp.com",
@@ -52,27 +52,33 @@
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
 
+    // Telegram config
     const TELEGRAM_BOT_TOKEN = "8188899814:AAH-cbR7RlkW0sS0znQWeIpg6LvgV8yN5LA";
-    const TELEGRAM_CHAT_ID = "734989570091"; // Ganti ke chat ID kamu jika perlu
+    const TELEGRAM_CHAT_ID   = "1705785645";
 
+    // DOM elements
     const messagesDiv = document.getElementById('messages');
-    const notif = document.getElementById('notifBubble');
-    const input = document.getElementById('messageInput');
+    const notifBubble = document.getElementById('notifBubble');
+    const inputField  = document.getElementById('messageInput');
 
+    // Emoji picker
     const picker = new EmojiButton();
     document.getElementById('emojiBtn').addEventListener('click', () => {
       picker.togglePicker(document.getElementById('emojiBtn'));
     });
     picker.on('emoji', emoji => {
-      input.value += emoji;
+      inputField.value += emoji;
+      inputField.focus();
     });
 
+    // Show in-app notification
     function showNotification(msg) {
-      notif.textContent = msg;
-      notif.style.display = 'block';
-      setTimeout(() => notif.style.display = 'none', 3000);
+      notifBubble.textContent = msg;
+      notifBubble.style.display = 'block';
+      setTimeout(() => notifBubble.style.display = 'none', 3000);
     }
 
+    // Listen for incoming messages
     onChildAdded(messagesRef, snapshot => {
       const data = snapshot.val();
       const username = document.getElementById('username').value.trim();
@@ -89,10 +95,10 @@
       messagesDiv.appendChild(msgDiv);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
+      // Notify and forward to Telegram
       if (data.name !== username) {
         showNotification(`${data.name}: ${data.message}`);
-        // Kirim ke Telegram
-        const text = `📨 *Pesan Baru dari ${data.name}*\n\n${data.message || ''}`;
+        const text = `📨 *Pesan dari ${data.name}*\n${data.message || ''}`;
         fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,17 +111,17 @@
       }
     });
 
+    // Send message handler
     window.sendMessage = function () {
       const name = document.getElementById('username').value.trim();
-      const message = input.value.trim();
+      const message = inputField.value.trim();
       const fileInput = document.getElementById('fileInput');
       const file = fileInput.files[0];
-
       if (!name || (!message && !file)) return;
 
       if (file) {
         const reader = new FileReader();
-        reader.onload = function (e) {
+        reader.onload = e => {
           push(messagesRef, { name, message, file: e.target.result });
         };
         reader.readAsDataURL(file);
@@ -123,8 +129,7 @@
       } else {
         push(messagesRef, { name, message });
       }
-
-      input.value = '';
+      inputField.value = "";
     };
   </script>
 </body>
