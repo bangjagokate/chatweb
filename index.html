@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Web Chat App</title>
+  <style>
+    body { font-family: Arial; background: #f4f4f4; margin: 0; padding: 0; }
+    .chat-container { max-width: 600px; margin: auto; background: #fff; height: 100vh; display: flex; flex-direction: column; border: 1px solid #ccc; }
+    .messages { flex: 1; padding: 10px; overflow-y: auto; }
+    .message { margin: 5px 0; padding: 5px 10px; border-radius: 5px; background: #e0e0e0; max-width: 80%; }
+    .message.me { background: #d1ffd1; margin-left: auto; text-align: right; }
+    .input-container { display: flex; border-top: 1px solid #ccc; }
+    input, button { padding: 10px; border: none; outline: none; }
+    input { flex: 1; }
+    button { background: #4caf50; color: #fff; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="messages" id="messages"></div>
+    <div class="input-container">
+      <input type="text" id="username" placeholder="Nama Anda" />
+      <input type="text" id="messageInput" placeholder="Ketik pesan..." />
+      <button onclick="sendMessage()">Kirim</button>
+    </div>
+  </div>
+
+  <audio id="notifSound" src="https://notificationsounds.com/storage/sounds/file-sounds-1144-pristine.mp3" preload="auto"></audio>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, limitToLast } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+    // Firebase configuration from your project
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
+      authDomain: "webchatapp-986b5.firebaseapp.com",
+      databaseURL: "https://webchatapp-986b5-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "webchatapp-986b5",
+      storageBucket: "webchatapp-986b5.firebasestorage.app",
+      messagingSenderId: "734989570091",
+      appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e",
+      measurementId: "G-Q62RQWXHEW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+
+    const messagesDiv = document.getElementById('messages');
+    const notifSound = document.getElementById('notifSound');
+
+    // Load recent messages
+    onChildAdded(messagesRef, snapshot => {
+      const data = snapshot.val();
+      const msgDiv = document.createElement('div');
+      const username = document.getElementById('username').value.trim();
+      msgDiv.className = 'message' + (data.name === username ? ' me' : '');
+      msgDiv.innerText = data.name + ': ' + data.message;
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      if (data.name !== username) {
+        showNotification(data.name, data.message);
+        notifSound.play();
+      }
+    });
+
+    // Send new message
+    window.sendMessage = function () {
+      const name = document.getElementById('username').value.trim();
+      const message = document.getElementById('messageInput').value.trim();
+      if (name && message) {
+        push(messagesRef, { name, message });
+        document.getElementById('messageInput').value = '';
+      }
+    };
+
+    // Request notification permission
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    // Show web notification
+    function showNotification(title, body) {
+      if (Notification.permission === "granted") {
+        new Notification(title, { body });
+      }
+    }
+  </script>
+</body>
+</html>
