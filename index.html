@@ -112,6 +112,101 @@
   </style>
 </head>
 <body>
+  <!-- Tambahkan ke dalam <body> HTML utama -->
+<style>
+  #onlineBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2196f3;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+
+  #onlineBtn img {
+    width: 30px;
+    height: 30px;
+  }
+
+  #onlinePopup {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    width: 200px;
+    display: none;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  #onlinePopup h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: #2196f3;
+  }
+
+  #onlinePopup ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  #onlinePopup ul li {
+    margin-bottom: 5px;
+    color: #333;
+  }
+</style>
+
+<div id="onlineBtn" onclick="toggleOnlinePopup()">
+  <img src="https://cdn-icons-png.flaticon.com/512/1077/1077012.png" alt="Online">
+</div>
+
+<div id="onlinePopup">
+  <h4>Online Sekarang</h4>
+  <ul id="onlineUsersList">
+    <li>Memuat...</li>
+  </ul>
+</div>
+
+<script>
+  function toggleOnlinePopup() {
+    const popup = document.getElementById('onlinePopup');
+    popup.style.display = (popup.style.display === 'none' || popup.style.display === '') ? 'block' : 'none';
+  }
+
+  function loadOnlineUsers() {
+    fetch('https://script.google.com/macros/s/AKfycbyIhD33QSoJyF43HgQhfc2H0iOXKZiWjOI787OQxvSappAw7zemFiZdn3XYcKEty0HsDQ/exec?action=getOnlineUsers')
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById('onlineUsersList');
+        if (data.length === 0) {
+          list.innerHTML = '<li>Tidak ada yang online</li>';
+        } else {
+          list.innerHTML = data.map(user => `<li>${user.ip}</li>`).join('');
+        }
+      })
+      .catch(() => {
+        document.getElementById('onlineUsersList').innerHTML = '<li>Gagal memuat</li>';
+      });
+  }
+
+  // Panggil load tiap 10 detik
+  setInterval(loadOnlineUsers, 10000);
+  loadOnlineUsers();
+</script>
   <div class="chat-container">
     <div class="messages" id="messages"></div>
     <div class="input-container">
