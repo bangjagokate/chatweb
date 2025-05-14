@@ -11,13 +11,33 @@
       background: #f1f1f1;
     }
     .chat-container {
-      max-width: 700px;
+      max-width: 900px;
       margin: auto;
       height: 100vh;
       display: flex;
-      flex-direction: column;
       background: #fff;
       border: 1px solid #ccc;
+    }
+    .user-list {
+      width: 200px;
+      border-right: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    .user-list h3 {
+      margin-top: 0;
+    }
+    .user-item {
+      margin: 5px 0;
+      padding: 5px;
+      background: #e0e0e0;
+      border-radius: 5px;
+    }
+    .chat-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     .messages {
       flex: 1;
@@ -84,13 +104,19 @@
 </head>
 <body>
   <div class="chat-container">
-    <div class="messages" id="messages"></div>
-    <div class="input-container">
-      <input type="text" id="username" placeholder="Nama Anda" />
-      <input type="text" id="messageInput" placeholder="Tulis pesan..." />
-      <input type="file" id="fileInput" />
-      <button onclick="sendMessage()">Kirim</button>
-      <button id="emojiBtn">Emoji</button>
+    <div class="user-list">
+      <h3>Online:</h3>
+      <div id="onlineUsers"></div>
+    </div>
+    <div class="chat-section">
+      <div class="messages" id="messages"></div>
+      <div class="input-container">
+        <input type="text" id="username" placeholder="Nama Anda" />
+        <input type="text" id="messageInput" placeholder="Tulis pesan..." />
+        <input type="file" id="fileInput" />
+        <button onclick="sendMessage()">Kirim</button>
+        <button id="emojiBtn">Emoji</button>
+      </div>
     </div>
   </div>
   <div class="notif-bubble" id="notifBubble"></div>
@@ -98,7 +124,9 @@
   <script type="module">
     import { EmojiButton } from 'https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/+esm';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+    import {
+      getDatabase, ref, push, onChildAdded, onValue, set, remove, onDisconnect
+    } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
@@ -114,6 +142,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
+    const usersRef = ref(db, 'users');
 
     const TELEGRAM_BOT_TOKEN = "8188899814:AAH-cbR7RlkW0sS0znQWeIpg6LvgV8yN5LA";
     const TELEGRAM_CHAT_ID   = "1705785645";
@@ -121,6 +150,7 @@
     const messagesDiv = document.getElementById('messages');
     const notifBubble = document.getElementById('notifBubble');
     const inputField  = document.getElementById('messageInput');
+    const userListDiv = document.getElementById('onlineUsers');
 
     const picker = new EmojiButton();
     document.getElementById('emojiBtn').addEventListener('click', () => {
@@ -135,6 +165,12 @@
       notifBubble.textContent = msg;
       notifBubble.style.display = 'block';
       setTimeout(() => notifBubble.style.display = 'none', 3000);
+    }
+
+    function updateOnlineUser(name) {
+      const userRef = ref(db, 'users/' + name);
+      set(userRef, true);
+      onDisconnect(userRef).remove();
     }
 
     onChildAdded(messagesRef, snapshot => {
@@ -168,12 +204,27 @@
       }
     });
 
+    onValue(usersRef, snapshot => {
+      userListDiv.innerHTML = '';
+      const users = snapshot.val();
+      if (users) {
+        Object.keys(users).forEach(name => {
+          const userEl = document.createElement('div');
+          userEl.className = 'user-item';
+          userEl.textContent = name;
+          userListDiv.appendChild(userEl);
+        });
+      }
+    });
+
     window.sendMessage = function () {
       const name = document.getElementById('username').value.trim();
       const message = inputField.value.trim();
       const fileInput = document.getElementById('fileInput');
       const file = fileInput.files[0];
       if (!name || (!message && !file)) return;
+
+      updateOnlineUser(name); // Tandai user aktif
 
       if (file) {
         const reader = new FileReader();
