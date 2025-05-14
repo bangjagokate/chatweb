@@ -5,17 +5,81 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat Web Modern</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #f1f1f1; }
-    .chat-container { max-width: 700px; margin: auto; height: 100vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #ccc; }
-    .messages { flex: 1; padding: 10px; overflow-y: auto; }
-    .message { margin: 10px 0; max-width: 75%; padding: 10px; border-radius: 10px; position: relative; }
-    .message.me { background: #d1ffd1; margin-left: auto; text-align: right; }
-    .message.other { background: #eaeaea; }
-    .message img { max-width: 100px; display: block; margin-top: 5px; border-radius: 5px; }
-    .input-container { display: flex; flex-wrap: wrap; align-items: center; padding: 10px; border-top: 1px solid #ccc; gap: 5px; }
-    input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-    button { padding: 10px; border: none; border-radius: 5px; background: #4caf50; color: #fff; cursor: pointer; }
-    .notif-bubble { position: fixed; bottom: 20px; right: 20px; background: #ff9800; color: white; padding: 10px 15px; border-radius: 10px; display: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f1f1;
+    }
+    .chat-container {
+      max-width: 700px;
+      margin: auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+    .messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+    .message {
+      margin: 10px 0;
+      max-width: 75%;
+      padding: 10px;
+      border-radius: 10px;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .message.me {
+      background: #d1ffd1;
+      margin-left: auto;
+      text-align: right;
+    }
+    .message.other {
+      background: #eaeaea;
+    }
+    .message img {
+      max-width: 100px;
+      display: block;
+      margin-top: 5px;
+      border-radius: 5px;
+    }
+    .input-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      gap: 5px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      background: #4caf50;
+      color: #fff;
+      cursor: pointer;
+    }
+    .notif-bubble {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #ff9800;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+      display: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
@@ -36,7 +100,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
       authDomain: "webchatapp-986b5.firebaseapp.com",
@@ -52,16 +115,13 @@
     const db = getDatabase(app);
     const messagesRef = ref(db, 'messages');
 
-    // Telegram config
     const TELEGRAM_BOT_TOKEN = "8188899814:AAH-cbR7RlkW0sS0znQWeIpg6LvgV8yN5LA";
     const TELEGRAM_CHAT_ID   = "1705785645";
 
-    // DOM elements
     const messagesDiv = document.getElementById('messages');
     const notifBubble = document.getElementById('notifBubble');
     const inputField  = document.getElementById('messageInput');
 
-    // Emoji picker
     const picker = new EmojiButton();
     document.getElementById('emojiBtn').addEventListener('click', () => {
       picker.togglePicker(document.getElementById('emojiBtn'));
@@ -71,14 +131,12 @@
       inputField.focus();
     });
 
-    // Show in-app notification
     function showNotification(msg) {
       notifBubble.textContent = msg;
       notifBubble.style.display = 'block';
       setTimeout(() => notifBubble.style.display = 'none', 3000);
     }
 
-    // Listen for incoming messages
     onChildAdded(messagesRef, snapshot => {
       const data = snapshot.val();
       const username = document.getElementById('username').value.trim();
@@ -95,10 +153,9 @@
       messagesDiv.appendChild(msgDiv);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-      // Notify and forward to Telegram
       if (data.name !== username) {
-        showNotification(`${data.name}: ${data.message}`);
-        const text = `📨 *Pesan dari ${data.name}*\n${data.message || ''}`;
+        showNotification(`${data.name}: ${data.message || '[file]'}`);
+        const text = `📨 *Pesan dari ${data.name}*\n${data.message || '[file]'}`;
         fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -111,7 +168,6 @@
       }
     });
 
-    // Send message handler
     window.sendMessage = function () {
       const name = document.getElementById('username').value.trim();
       const message = inputField.value.trim();
