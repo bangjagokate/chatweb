@@ -17,6 +17,7 @@
       flex-direction: column;
       background: #fff;
       border: 1px solid #ccc;
+      position: relative;
     }
     .messages {
       flex: 1;
@@ -83,24 +84,23 @@
       position: fixed;
       top: 10px;
       right: 10px;
-      width: 200px;
-      max-height: 90vh;
-      background: rgba(255,255,255,0.95);
+      background: white;
+      border: 1px solid #ccc;
       border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       padding: 10px;
-      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      z-index: 999;
+      width: 200px;
+      max-height: 50vh;
       overflow-y: auto;
-      z-index: 998;
     }
     .online-panel h4 {
-      margin: 0 0 10px;
-      font-size: 16px;
-      text-align: center;
+      margin: 0 0 10px 0;
+      font-size: 14px;
     }
     .online-user {
-      padding: 5px 8px;
-      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      margin: 3px 0;
     }
   </style>
 </head>
@@ -115,9 +115,123 @@
       <button id="emojiBtn">Emoji</button>
     </div>
   </div>
-  <div class="online-panel" id="onlinePanel">
-    <h4>Online</h4>
-    <div id="onlineUsers"></div>
-  </div>
-  <div class="notif-bubble" id="notifBubble"></div>  <!-- Script Firebase, Emoji, dan Logic menyusul --></body>
+  <div class="notif-bubble" id="notifBubble"></div>
+  <div class="online-panel" id="onlineUsers">
+    <h4>Pengguna Online</h4>
+    <div id="userList"></div>
+  </div>  <script type="module">
+    import { EmojiButton } from 'https://cdn.jsdelivr.net/npm/@joeattardi/emoji-button@4.6.4/+esm';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, onValue, set, serverTimestamp, remove } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgriXVbJKsJe1NxvIEkTbXIuMsrBUdtF8",
+      authDomain: "webchatapp-986b5.firebaseapp.com",
+      databaseURL: "https://webchatapp-986b5-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "webchatapp-986b5",
+      storageBucket: "webchatapp-986b5.appspot.com",
+      messagingSenderId: "734989570091",
+      appId: "1:734989570091:web:cb4d53cb511d24b6c75a6e",
+      measurementId: "G-Q62RQWXHEW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+    const onlineRef = ref(db, 'online');
+
+    const TELEGRAM_BOT_TOKEN = "8188899814:AAH-cbR7RlkW0sS0znQWeIpg6LvgV8yN5LA";
+    const TELEGRAM_CHAT_ID   = "1705785645";
+
+    const messagesDiv = document.getElementById('messages');
+    const notifBubble = document.getElementById('notifBubble');
+    const inputField  = document.getElementById('messageInput');
+    const usernameInput = document.getElementById('username');
+    const userListDiv = document.getElementById('userList');
+
+    const picker = new EmojiButton();
+    document.getElementById('emojiBtn').addEventListener('click', () => {
+      picker.togglePicker(document.getElementById('emojiBtn'));
+    });
+    picker.on('emoji', emoji => {
+      inputField.value += emoji;
+      inputField.focus();
+    });
+
+    function showNotification(msg) {
+      notifBubble.textContent = msg;
+      notifBubble.style.display = 'block';
+      setTimeout(() => notifBubble.style.display = 'none', 3000);
+    }
+
+    onChildAdded(messagesRef, snapshot => {
+      const data = snapshot.val();
+      const username = usernameInput.value.trim();
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message ' + (data.name === username ? 'me' : 'other');
+      msgDiv.innerHTML = `<strong>${data.name}</strong><br>${data.message || ''}`;
+      if (data.file) {
+        if (data.file.startsWith('data:image')) {
+          msgDiv.innerHTML += `<img src="${data.file}" />`;
+        } else {
+          msgDiv.innerHTML += `<br><a href="${data.file}" download>Download file</a>`;
+        }
+      }
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      if (data.name !== username) {
+        showNotification(`${data.name}: ${data.message || '[file]'}`);
+        const text = `📨 *Pesan dari ${data.name}*\n${data.message || '[file]'}`;
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: text,
+            parse_mode: 'Markdown'
+          })
+        });
+      }
+    });
+
+    window.sendMessage = function () {
+      const name = usernameInput.value.trim();
+      const message = inputField.value.trim();
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!name || (!message && !file)) return;
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          push(messagesRef, { name, message, file: e.target.result });
+        };
+        reader.readAsDataURL(file);
+        fileInput.value = "";
+      } else {
+        push(messagesRef, { name, message });
+      }
+      inputField.value = "";
+    };
+
+    // Online presence
+    function updateOnlineUsers() {
+      onValue(onlineRef, snapshot => {
+        const data = snapshot.val() || {};
+        userListDiv.innerHTML = Object.values(data).map(u => `<div class='online-user'>${u}</div>`).join('');
+      });
+    }
+
+    usernameInput.addEventListener('change', () => {
+      const username = usernameInput.value.trim();
+      if (!username) return;
+      const userKey = username.replace(/[^a-zA-Z0-9]/g, '_');
+      const userRef = ref(db, `online/${userKey}`);
+      set(userRef, username);
+      window.addEventListener('beforeunload', () => remove(userRef));
+    });
+
+    updateOnlineUsers();
+  </script></body>
 </html>
